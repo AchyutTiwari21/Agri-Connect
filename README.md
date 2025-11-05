@@ -24,8 +24,8 @@ A full-stack web portal connecting local farmers directly with consumers for sus
 
 - **Frontend**: Next.js 14 (App Router), React, TypeScript
 - **Styling**: TailwindCSS, ShadCN/UI
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
+- **Database**: PostgreSQL (Neon) via Prisma
+- **Authentication**: NextAuth (Credentials, Prisma Adapter)
 - **Payments**: Razorpay
 - **Animations**: Framer Motion
 - **State Management**: React Context API
@@ -35,7 +35,7 @@ A full-stack web portal connecting local farmers directly with consumers for sus
 ### Prerequisites
 
 - Node.js 18+ and npm
-- A Supabase account
+- A PostgreSQL database (Neon or similar)
 - A Razorpay account (optional, for payment integration)
 
 ### Setup Instructions
@@ -45,18 +45,14 @@ A full-stack web portal connecting local farmers directly with consumers for sus
    npm install
    ```
 
-2. **Configure Supabase**
-   - Create a new project at [supabase.com](https://supabase.com)
-   - Go to Project Settings > API
-   - Copy your project URL and anon key
-   - The database schema is already created via migrations
+2. **Configure Database**
+   - Set `DATABASE_URL` in your environment to your PostgreSQL URI
 
 3. **Configure Environment Variables**
 
    Update `.env.local` with your credentials:
    ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   DATABASE_URL=postgresql://...
    NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
    RAZORPAY_KEY_SECRET=your_razorpay_secret
    ```
@@ -140,7 +136,7 @@ The seed script includes links to free stock photos from Pexels for:
 │   ├── AuthContext.tsx      # Authentication state
 │   └── CartContext.tsx      # Shopping cart state
 ├── lib/                     # Utility functions
-│   └── supabase.ts          # Supabase client
+│   └── types.ts             # Shared type definitions
 └── scripts/                 # Database scripts
     └── seed.sql             # Sample data
 

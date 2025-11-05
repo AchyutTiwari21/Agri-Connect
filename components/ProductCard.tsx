@@ -1,6 +1,6 @@
 'use client';
 
-import { Product } from '@/lib/supabase';
+import { Product } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Star, User } from 'lucide-react';

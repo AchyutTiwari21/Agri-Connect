@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product } from '@/lib/supabase';
+import { Product } from '@/lib/types';
 
 type CartItem = Product & {
   cartQuantity: number;

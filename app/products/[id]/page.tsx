@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase, Product, Review } from '@/lib/supabase';
+import { Product, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
