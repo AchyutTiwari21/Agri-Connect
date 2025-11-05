@@ -72,19 +72,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          name,
+          role,
+        },
+      },
     });
 
     if (error) return { error };
 
     if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        name,
-        role,
-      });
+      // The trigger should automatically create the profile from metadata
+      // But if the user is already authenticated (no email confirmation), try to create it now
+      if (data.session) {
+        // User is authenticated, try to create profile via RPC
+        const { error: profileError } = await supabase.rpc('create_user_profile', {
+          p_name: name,
+          p_role: role,
+        });
 
-      if (profileError) return { error: profileError };
-      await fetchProfile(data.user.id);
+        if (profileError) {
+          // If RPC fails, try direct insert as fallback
+          const { error: insertError } = await supabase.from('profiles').insert({
+            id: data.user.id,
+            name,
+            role,
+          });
+
+          if (insertError) {
+            // If both fail, log but don't block signup (trigger will handle it)
+            console.warn('Failed to create profile immediately:', insertError);
+          } else {
+            await fetchProfile(data.user.id);
+          }
+        } else {
+          await fetchProfile(data.user.id);
+        }
+      }
+      // If no session (email confirmation required), the trigger will create the profile
     }
 
     return { error: null };
