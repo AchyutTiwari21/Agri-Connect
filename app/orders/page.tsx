@@ -30,20 +30,9 @@ export default function OrdersPage() {
   }, [user, profile, authLoading, router]);
 
   const fetchOrders = async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        products (
-          name,
-          image,
-          category
-        )
-      `)
-      .eq('buyer_id', user?.id)
-      .order('created_at', { ascending: false });
-
-    if (data) {
+    const res = await fetch(`/api/user/orders?buyerId=${user?.id}`);
+    if (res.ok) {
+      const data = await res.json();
       setOrders(data);
     }
     setLoading(false);

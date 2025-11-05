@@ -53,27 +53,18 @@ export default function FarmerDashboard() {
   };
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('farmer_id', user?.id)
-      .order('created_at', { ascending: false });
-
-    if (data) {
+    const res = await fetch(`/api/products?farmerId=${user?.id}`);
+    if (res.ok) {
+      const data = await res.json();
       setProducts(data);
     }
   };
 
   const fetchOrders = async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        products (*)
-      `)
-      .in('product_id', products.map((p) => p.id));
-
-    if (data) {
+    if (products.length === 0) { setOrders([]); return; }
+    const res = await fetch(`/api/farmer/orders?productIds=${products.map(p => p.id).join(',')}`);
+    if (res.ok) {
+      const data = await res.json();
       setOrders(data);
     }
   };
@@ -95,21 +86,25 @@ export default function FarmerDashboard() {
 
     let error;
 
+    let ok = true; let errMsg = '';
     if (editingProduct) {
-      const { error: updateError } = await supabase
-        .from('products')
-        .update(productData)
-        .eq('id', editingProduct.id);
-      error = updateError;
+      const res = await fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingProduct.id, ...productData }),
+      });
+      ok = res.ok; if (!ok) { const d = await res.json(); errMsg = d.error; }
     } else {
-      const { error: insertError } = await supabase
-        .from('products')
-        .insert([productData]);
-      error = insertError;
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData),
+      });
+      ok = res.ok; if (!ok) { const d = await res.json(); errMsg = d.error; }
     }
 
-    if (error) {
-      toast.error(error.message);
+    if (!ok) {
+      toast.error(errMsg || 'Failed to save product');
     } else {
       toast.success(editingProduct ? 'Product updated!' : 'Product added!');
       setIsDialogOpen(false);
@@ -134,10 +129,10 @@ export default function FarmerDashboard() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
 
-    const { error } = await supabase.from('products').delete().eq('id', id);
-
-    if (error) {
-      toast.error(error.message);
+    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      toast.error(data.error || 'Failed to delete');
     } else {
       toast.success('Product deleted!');
       fetchProducts();

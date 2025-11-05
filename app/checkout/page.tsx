@@ -51,31 +51,22 @@ export default function CheckoutPage() {
 
     try {
       for (const item of cart) {
-        const { error } = await supabase.from('orders').insert({
-          product_id: item.id,
-          buyer_id: user?.id,
-          quantity: item.cartQuantity,
-          total_amount: item.price * item.cartQuantity,
-          payment_status: 'completed',
-          razorpay_order_id: 'demo_' + Date.now(),
-          razorpay_payment_id: 'pay_' + Date.now(),
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            product_id: item.id,
+            buyer_id: user?.id,
+            quantity: item.cartQuantity,
+            total_amount: item.price * item.cartQuantity,
+            payment_status: 'completed',
+            razorpay_order_id: 'demo_' + Date.now(),
+            razorpay_payment_id: 'pay_' + Date.now(),
+          }),
         });
-
-        if (error) {
-          throw error;
-        }
-
-        const { data: product } = await supabase
-          .from('products')
-          .select('quantity')
-          .eq('id', item.id)
-          .maybeSingle();
-
-        if (product) {
-          await supabase
-            .from('products')
-            .update({ quantity: product.quantity - item.cartQuantity })
-            .eq('id', item.id);
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Order failed');
         }
       }
 
@@ -100,29 +91,22 @@ export default function CheckoutPage() {
         setProcessing(true);
         try {
           for (const item of cart) {
-            const { error } = await supabase.from('orders').insert({
-              product_id: item.id,
-              buyer_id: user?.id,
-              quantity: item.cartQuantity,
-              total_amount: item.price * item.cartQuantity,
-              payment_status: 'completed',
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
+            const res = await fetch('/api/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                product_id: item.id,
+                buyer_id: user?.id,
+                quantity: item.cartQuantity,
+                total_amount: item.price * item.cartQuantity,
+                payment_status: 'completed',
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+              }),
             });
-
-            if (error) throw error;
-
-            const { data: product } = await supabase
-              .from('products')
-              .select('quantity')
-              .eq('id', item.id)
-              .maybeSingle();
-
-            if (product) {
-              await supabase
-                .from('products')
-                .update({ quantity: product.quantity - item.cartQuantity })
-                .eq('id', item.id);
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || 'Order failed');
             }
           }
 

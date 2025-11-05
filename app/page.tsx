@@ -31,32 +31,23 @@ export default function Home() {
 
   const fetchProducts = async () => {
     setLoading(true);
-    const { data: productsData, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        profiles (name),
-        reviews (rating)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (productsData) {
-      const productsWithRatings = productsData.map((product) => {
-        const reviews = (product as any).reviews || [];
-        const avgRating = reviews.length > 0
-          ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
+    const res = await fetch('/api/products');
+    if (res.ok) {
+      const productsData = await res.json();
+      const productsWithRatings = productsData.map((product: any) => {
+        const avgRating = product.reviews?.length
+          ? product.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / product.reviews.length
           : 0;
-
         return {
           ...product,
           avgRating,
-          reviewCount: reviews.length,
-        };
+          reviewCount: product.reviews?.length || 0,
+        } as Product & { avgRating?: number; reviewCount?: number };
       });
 
       setProducts(productsWithRatings);
 
-      const prices = productsData.map((p) => p.price);
+      const prices = productsData.map((p: any) => p.price);
       const max = Math.max(...prices, 10000);
       setMaxPrice(max);
       setPriceRange([0, max]);

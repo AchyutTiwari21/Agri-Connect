@@ -39,33 +39,27 @@ export default function ProductDetailPage() {
   }, [params.id]);
 
   const fetchProduct = async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        profiles (name)
-      `)
-      .eq('id', params.id)
-      .maybeSingle();
-
-    if (data) {
-      setProduct(data);
+    const res = await fetch(`/api/products/${params.id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setProduct({
+        ...data,
+        profiles: data.farmer ? { id: '', name: data.farmer.name, role: 'farmer', created_at: '', updated_at: '' } : undefined,
+      });
     }
     setLoading(false);
   };
 
   const fetchReviews = async () => {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select(`
-        *,
-        profiles (name)
-      `)
-      .eq('product_id', params.id)
-      .order('created_at', { ascending: false });
-
-    if (data) {
-      setReviews(data);
+    const res = await fetch(`/api/products/${params.id}/reviews`);
+    if (res.ok) {
+      const data = await res.json();
+      setReviews(
+        data.map((r: any) => ({
+          ...r,
+          profiles: r.user ? { name: r.user.name } : undefined,
+        }))
+      );
     }
   };
 
@@ -98,19 +92,21 @@ export default function ProductDetailPage() {
 
     setSubmittingReview(true);
 
-    const { error } = await supabase.from('reviews').insert({
-      product_id: params.id as string,
-      user_id: user.id,
-      rating,
-      comment,
+    const res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id: params.id as string,
+        user_id: user.id,
+        rating,
+        comment,
+      }),
     });
 
-    if (error) {
-      if (error.code === '23505') {
-        toast.error('You have already reviewed this product');
-      } else {
-        toast.error(error.message);
-      }
+    if (!res.ok) {
+      const data = await res.json();
+      if (res.status === 409) toast.error('You have already reviewed this product');
+      else toast.error(data.error || 'Failed to submit review');
     } else {
       toast.success('Review submitted!');
       setComment('');
