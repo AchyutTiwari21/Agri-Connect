@@ -38,11 +38,24 @@ export default function Home() {
         const avgRating = product.reviews?.length
           ? product.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / product.reviews.length
           : 0;
-        return {
+
+        const mapped = {
           ...product,
           avgRating,
           reviewCount: product.reviews?.length || 0,
         } as Product & { avgRating?: number; reviewCount?: number };
+
+        if (product.farmer?.name && !mapped.profiles) {
+          mapped.profiles = {
+            id: '',
+            name: product.farmer.name,
+            role: 'farmer',
+            created_at: '',
+            updated_at: '',
+          };
+        }
+
+        return mapped;
       });
 
       setProducts(productsWithRatings);

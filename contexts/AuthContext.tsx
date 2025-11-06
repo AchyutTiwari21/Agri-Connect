@@ -37,10 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const sUser = session?.user as any;
-    if (sUser?.id) {
+    if (status === 'authenticated' && sUser?.id) {
       setUser({ id: sUser.id, email: sUser.email });
       fetchProfile(sUser.id);
-    } else {
+    }
+    if (status === 'unauthenticated') {
       setUser(null);
       setProfile(null);
     }
