@@ -38,44 +38,116 @@ export default function CheckoutPage() {
     }
   }, [user, authLoading, cart, router]);
 
+  const placeOrderRecords = async (payment: { order_id: string; payment_id: string }) => {
+    for (const item of cart) {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: item.id,
+          buyer_id: user?.id,
+          quantity: item.cartQuantity,
+          total_amount: item.price * item.cartQuantity,
+          payment_status: 'completed',
+          razorpay_order_id: payment.order_id,
+          razorpay_payment_id: payment.payment_id,
+          address,
+          phone
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Order failed');
+      }
+    }
+  };
+
+  const openRazorpay = (orderId: string) => {
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      amount: cartTotal * 100,
+      currency: 'INR',
+      name: 'AgriConnect',
+      description: 'Purchase from local farmers',
+      order_id: orderId,
+      prefill: {
+        name: profile?.name,
+        email: user?.email,
+        contact: phone,
+      },
+      notes: {
+        address
+      },
+      theme: { color: '#16a34a' },
+      handler: async (response: any) => {
+        try {
+          setProcessing(true);
+          // Verify signature on server
+          const verifyRes = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const verifyJson = await verifyRes.json();
+          if (!verifyRes.ok) {
+            throw new Error(verifyJson?.error || 'Payment verification failed');
+          }
+
+          await placeOrderRecords({
+            order_id: response.razorpay_order_id,
+            payment_id: response.razorpay_payment_id,
+          });
+
+          clearCart();
+          toast.success('Payment successful!');
+          router.push('/orders');
+        } catch (err: any) {
+          toast.error(err?.message || 'Payment failed');
+        } finally {
+          setProcessing(false);
+        }
+      },
+      modal: {
+        ondismiss: () => {
+          setProcessing(false);
+          toast.error('Payment cancelled');
+        }
+      }
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!address || !phone) {
       toast.error('Please fill in all fields');
       return;
     }
-
-    setProcessing(true);
-
     try {
-      for (const item of cart) {
-        const res = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            product_id: item.id,
-            buyer_id: user?.id,
-            quantity: item.cartQuantity,
-            total_amount: item.price * item.cartQuantity,
-            payment_status: 'completed',
-            razorpay_order_id: 'demo_' + Date.now(),
-            razorpay_payment_id: 'pay_' + Date.now(),
-          }),
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Order failed');
-        }
+      setProcessing(true);
+      // Create Razorpay order on server
+      const orderRes = await fetch('/api/payments/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(cartTotal * 100),
+          currency: 'INR',
+          receipt: `agri_${Date.now()}`,
+        }),
+      });
+      const orderJson = await orderRes.json();
+      if (!orderRes.ok || !orderJson?.orderId) {
+        throw new Error(orderJson?.error || 'Failed to initialize payment');
       }
-
-      clearCart();
-      toast.success('Order placed successfully!');
-      router.push('/orders');
+      openRazorpay(orderJson.orderId);
     } catch (error: any) {
-      toast.error(error.message || 'Payment failed');
-    } finally {
       setProcessing(false);
+      toast.error(error.message || 'Unable to start payment');
     }
   };
 
@@ -244,10 +316,10 @@ export default function CheckoutPage() {
                         onClick={handlePayment}
                         disabled={processing || !address || !phone}
                       >
-                        {processing ? 'Processing...' : 'Place Order (Demo)'}
+                        {processing ? 'Processing...' : 'Place Order'}
                       </Button>
 
-                      {typeof window !== 'undefined' && window.Razorpay && (
+                      {/* {typeof window !== 'undefined' && window.Razorpay && (
                         <Button
                           className="w-full"
                           size="lg"
@@ -257,7 +329,7 @@ export default function CheckoutPage() {
                         >
                           Pay with Razorpay
                         </Button>
-                      )}
+                      )} */}
 
                       <p className="text-xs text-center text-muted-foreground">
                         Your payment information is secure
