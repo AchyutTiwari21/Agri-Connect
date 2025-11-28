@@ -86,10 +86,10 @@ export default function ProductCard({ product }: ProductCardProps) {
         <CardFooter className="flex items-center justify-between pt-3 border-t">
           <div>
             <p className="text-2xl font-bold text-green-700">
-              ₹{product.price}
+              ₹{product.price} / {product.category === 'Dairy' ? 'ltr' : 'kg'}
             </p>
             <p className="text-xs text-muted-foreground">
-              {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+              {product.quantity > 0 ? `${product.quantity} ${product.category === 'Dairy' ? 'ltr' : 'kg'} in stock` : 'Out of stock'}
             </p>
           </div>
           <Button

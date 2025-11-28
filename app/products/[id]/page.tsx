@@ -181,7 +181,7 @@ export default function ProductDetailPage() {
               </div>
 
               <p className="text-3xl font-bold text-green-700 mb-4">
-                ₹{product.price}
+                ₹{product.price} / {product.category === 'Dairy' ? 'ltr' : 'kg'}
               </p>
 
               <p className="text-muted-foreground mb-6">{product.description}</p>

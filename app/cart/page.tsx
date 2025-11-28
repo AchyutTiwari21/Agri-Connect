@@ -148,7 +148,7 @@ export default function CartPage() {
                                   ₹{(item.price * item.cartQuantity).toFixed(2)}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  ₹{item.price} each
+                                  ₹{item.price} / {item.category === 'Dairy' ? 'ltr' : 'kg'}
                                 </p>
                               </div>
                             </div>
