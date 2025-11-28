@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import SuccessModal from '@/components/SuccessModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,12 +22,16 @@ declare global {
 }
 
 export default function CheckoutPage() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const { cart, cartTotal, clearCart } = useCart();
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [successSubtitle, setSuccessSubtitle] = useState(
+    'Your payment has been processed successfully.'
+  );
 
   useEffect(() => {
     if (!authLoading) {
@@ -37,6 +42,15 @@ export default function CheckoutPage() {
       }
     }
   }, [user, authLoading, cart, router]);
+
+  useEffect(() => {
+    if (profile?.phone) {
+      setPhone(profile.phone);
+    }
+    if (profile?.address) {
+      setAddress(profile.address);
+    }
+  }, [profile?.phone, profile?.address]);
 
   const placeOrderRecords = async (payment: { order_id: string; payment_id: string }) => {
     for (const item of cart) {
@@ -104,7 +118,8 @@ export default function CheckoutPage() {
 
           clearCart();
           toast.success('Payment successful!');
-          router.push('/orders');
+          setSuccessSubtitle('Your payment has been received and your order is on the way.');
+          setSuccessOpen(true);
         } catch (err: any) {
           toast.error(err?.message || 'Payment failed');
         } finally {
@@ -122,6 +137,22 @@ export default function CheckoutPage() {
     rzp.open();
   };
 
+  const saveContactInfo = async () => {
+    if (!user) return;
+    const res = await fetch(`/api/profiles/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, address }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Unable to save contact info');
+    }
+
+    await refreshProfile();
+  };
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!address || !phone) {
@@ -130,6 +161,7 @@ export default function CheckoutPage() {
     }
     try {
       setProcessing(true);
+      await saveContactInfo();
       // Create Razorpay order on server
       const orderRes = await fetch('/api/payments/order', {
         method: 'POST',
@@ -183,7 +215,8 @@ export default function CheckoutPage() {
 
           clearCart();
           toast.success('Payment successful!');
-          router.push('/orders');
+          setSuccessSubtitle('Your payment has been received and your order is on the way.');
+          setSuccessOpen(true);
         } catch (error: any) {
           toast.error(error.message);
         } finally {
@@ -342,6 +375,23 @@ export default function CheckoutPage() {
           </motion.div>
         </div>
       </div>
+
+      <SuccessModal
+        open={successOpen}
+        title="Payment Successful"
+        description={successSubtitle}
+        primaryLabel="View Orders"
+        onPrimary={() => {
+          setSuccessOpen(false);
+          router.push('/orders');
+        }}
+        secondaryLabel="Back to Cart"
+        onSecondary={() => {
+          setSuccessOpen(false);
+          router.push('/cart?order=success');
+        }}
+        onClose={() => setSuccessOpen(false)}
+      />
     </>
   );
 }

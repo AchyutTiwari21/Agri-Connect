@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import SuccessModal from '@/components/SuccessModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,12 +20,21 @@ export default function CartPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const { cart, updateQuantity, removeFromCart, cartTotal } = useCart();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [showOrderSuccess, setShowOrderSuccess] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/login');
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (searchParams.get('order') === 'success') {
+      setShowOrderSuccess(true);
+      router.replace('/cart');
+    }
+  }, [searchParams, router]);
 
   const handleCheckout = () => {
     router.push('/checkout');
@@ -42,18 +52,19 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <Toaster position="top-center" />
+    <>
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <Toaster position="top-center" />
 
-      <div className="container mx-auto px-4 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <div className="container mx-auto px-4 py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
           <h1 className="text-3xl font-bold mb-8">Shopping Cart</h1>
 
-          {cart.length === 0 ? (
+            {cart.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
@@ -68,7 +79,7 @@ export default function CartPage() {
                 </Link>
               </CardContent>
             </Card>
-          ) : (
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-4">
                 {cart.map((item) => (
@@ -192,9 +203,27 @@ export default function CartPage() {
                 </Card>
               </div>
             </div>
-          )}
-        </motion.div>
+            )}
+          </motion.div>
+        </div>
       </div>
-    </div>
+
+      <SuccessModal
+        open={showOrderSuccess}
+        title="Order Confirmed"
+        description="Your order has been placed successfully. We will update you when it ships."
+        primaryLabel="View Orders"
+        onPrimary={() => {
+          setShowOrderSuccess(false);
+          router.push('/orders');
+        }}
+        secondaryLabel="Continue Shopping"
+        onSecondary={() => {
+          setShowOrderSuccess(false);
+          router.push('/');
+        }}
+        onClose={() => setShowOrderSuccess(false)}
+      />
+    </>
   );
 }
