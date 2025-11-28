@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Product, Order } from '@/lib/types';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Package, DollarSign } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Plus, Edit, Trash2, Package, DollarSign, Eye } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -23,10 +31,34 @@ export default function FarmerDashboard() {
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<(Order & { products?: Product })[]>([]);
+  const [orders, setOrders] = useState<
+    (Order & {
+      products?: Product;
+      buyer?: {
+        id: string;
+        name: string;
+        phone?: string | null;
+        address?: string | null;
+        email?: string | null;
+      };
+    })[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<
+    (Order & {
+      products?: Product;
+      buyer?: {
+        id: string;
+        name: string;
+        phone?: string | null;
+        address?: string | null;
+        email?: string | null;
+      };
+    }) | null
+  >(null);
+  const [orderDrawerOpen, setOrderDrawerOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,24 +80,37 @@ export default function FarmerDashboard() {
   }, [user, profile, authLoading, router]);
 
   const fetchData = async () => {
-    await Promise.all([fetchProducts(), fetchOrders()]);
+    const productList = await fetchProducts();
+    await fetchOrders(productList);
     setLoading(false);
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (): Promise<Product[]> => {
     const res = await fetch(`/api/products?farmerId=${user?.id}`);
     if (res.ok) {
       const data = await res.json();
       setProducts(data);
+      return data;
     }
+    setProducts([]);
+    return [];
   };
 
-  const fetchOrders = async () => {
-    if (products.length === 0) { setOrders([]); return; }
-    const res = await fetch(`/api/farmer/orders?productIds=${products.map(p => p.id).join(',')}`);
+  const fetchOrders = async (productList?: Product[]) => {
+    const source = productList ?? products;
+    if (!user || source.length === 0) {
+      setOrders([]);
+      return;
+    }
+
+    const res = await fetch(
+      `/api/farmer/orders?productIds=${source.map((p) => p.id).join(',')}`
+    );
     if (res.ok) {
       const data = await res.json();
       setOrders(data);
+    } else {
+      setOrders([]);
     }
   };
 
@@ -109,7 +154,8 @@ export default function FarmerDashboard() {
       toast.success(editingProduct ? 'Product updated!' : 'Product added!');
       setIsDialogOpen(false);
       resetForm();
-      fetchProducts();
+      const latestProducts = await fetchProducts();
+      await fetchOrders(latestProducts);
     }
   };
 
@@ -135,7 +181,8 @@ export default function FarmerDashboard() {
       toast.error(data.error || 'Failed to delete');
     } else {
       toast.success('Product deleted!');
-      fetchProducts();
+      const latestProducts = await fetchProducts();
+      await fetchOrders(latestProducts);
     }
   };
 
@@ -167,6 +214,7 @@ export default function FarmerDashboard() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <Toaster position="top-center" />
@@ -365,8 +413,188 @@ export default function FarmerDashboard() {
               )}
             </CardContent>
           </Card>
+
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle>Recent Orders</CardTitle>
+              <CardDescription>Orders placed for your products</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {orders.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-medium">#{order.id.slice(0, 8)}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{order.products?.name || 'Product'}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {order.products?.category || 'N/A'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              order.payment_status === 'completed'
+                                ? 'default'
+                                : order.payment_status === 'pending'
+                                ? 'secondary'
+                                : 'destructive'
+                            }
+                          >
+                            {order.payment_status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{order.quantity}</TableCell>
+                        <TableCell>₹{order.total_amount.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {new Date(order.created_at).toLocaleDateString('en-IN', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setOrderDrawerOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No orders received yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
     </div>
+
+      <Sheet
+        open={orderDrawerOpen}
+        onOpenChange={(open) => {
+          setOrderDrawerOpen(open);
+          if (!open) {
+            setSelectedOrder(null);
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Order Details</SheetTitle>
+            <SheetDescription>
+              {selectedOrder ? `Order #${selectedOrder.id.slice(0, 8)}` : 'Select an order to view details'}
+            </SheetDescription>
+          </SheetHeader>
+
+          {selectedOrder ? (
+            <div className="space-y-6 py-4">
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Customer</h4>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="font-medium">{selectedOrder.buyer?.name ?? 'Unknown customer'}</p>
+                  <p className="text-muted-foreground">{selectedOrder.buyer?.email ?? 'No email'}</p>
+                  <p>{selectedOrder.buyer?.phone ?? 'No phone provided'}</p>
+                  <p className="text-muted-foreground">
+                    {selectedOrder.buyer?.address ?? 'No address added yet'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Order Summary</h4>
+                <div className="mt-2 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>Status</span>
+                    <Badge
+                      variant={
+                        selectedOrder.payment_status === 'completed'
+                          ? 'default'
+                          : selectedOrder.payment_status === 'pending'
+                          ? 'secondary'
+                          : 'destructive'
+                      }
+                    >
+                      {selectedOrder.payment_status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Quantity</span>
+                    <span className="font-medium">{selectedOrder.quantity}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Total Amount</span>
+                    <span className="font-semibold text-green-700">₹{selectedOrder.total_amount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Placed On</span>
+                    <span>
+                      {new Date(selectedOrder.created_at).toLocaleString('en-IN', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Product</h4>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p className="font-medium">{selectedOrder.products?.name ?? 'Product'}</p>
+                  <p className="text-muted-foreground">
+                    Category: {selectedOrder.products?.category ?? 'N/A'}
+                  </p>
+                  {typeof selectedOrder.products?.price === 'number' && (
+                    <p>Unit Price: ₹{selectedOrder.products.price.toFixed(2)}</p>
+                  )}
+                </div>
+              </div>
+
+              {selectedOrder.razorpay_order_id && (
+                <div>
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Payment Reference</h4>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p>Order ID: {selectedOrder.razorpay_order_id}</p>
+                    {selectedOrder.razorpay_payment_id && <p>Payment ID: {selectedOrder.razorpay_payment_id}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Select an order to view its full details.
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
