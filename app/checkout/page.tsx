@@ -52,30 +52,6 @@ export default function CheckoutPage() {
     }
   }, [profile?.phone, profile?.address]);
 
-  const placeOrderRecords = async (payment: { order_id: string; payment_id: string }) => {
-    for (const item of cart) {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: item.id,
-          buyer_id: user?.id,
-          quantity: item.cartQuantity,
-          total_amount: item.price * item.cartQuantity,
-          payment_status: 'completed',
-          razorpay_order_id: payment.order_id,
-          razorpay_payment_id: payment.payment_id,
-          address,
-          phone
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Order failed');
-      }
-    }
-  };
-
   const openRazorpay = (orderId: string) => {
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -90,7 +66,15 @@ export default function CheckoutPage() {
         contact: phone,
       },
       notes: {
-        address
+        address,
+        buyerId: user?.id,
+        cartData: JSON.stringify(
+          cart.map((item) => ({
+            product_id: item.id,
+            quantity: item.cartQuantity,
+            total_amount: item.price * item.cartQuantity,
+          }))
+        ),
       },
       theme: { color: '#16a34a' },
       handler: async (response: any) => {
@@ -111,11 +95,7 @@ export default function CheckoutPage() {
             throw new Error(verifyJson?.error || 'Payment verification failed');
           }
 
-          await placeOrderRecords({
-            order_id: response.razorpay_order_id,
-            payment_id: response.razorpay_payment_id,
-          });
-
+          // Orders will be created by webhook handler on payment.captured event
           clearCart();
           toast.success('Payment successful!');
           setSuccessSubtitle('Your payment has been received and your order is on the way.');
@@ -170,6 +150,17 @@ export default function CheckoutPage() {
           amount: Math.round(cartTotal * 100),
           currency: 'INR',
           receipt: `agri_${Date.now()}`,
+          notes: {
+            address,
+            buyerId: user?.id,
+            cartData: JSON.stringify(
+              cart.map((item) => ({
+                product_id: item.id,
+                quantity: item.cartQuantity,
+                total_amount: item.price * item.cartQuantity,
+              }))
+            ),
+          },
         }),
       });
       const orderJson = await orderRes.json();
@@ -183,59 +174,6 @@ export default function CheckoutPage() {
     }
   };
 
-  const initRazorpayPayment = () => {
-    const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      amount: cartTotal * 100,
-      currency: 'INR',
-      name: 'AgriConnect',
-      description: 'Purchase from local farmers',
-      handler: async function (response: any) {
-        setProcessing(true);
-        try {
-          for (const item of cart) {
-            const res = await fetch('/api/orders', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                product_id: item.id,
-                buyer_id: user?.id,
-                quantity: item.cartQuantity,
-                total_amount: item.price * item.cartQuantity,
-                payment_status: 'completed',
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-              }),
-            });
-            if (!res.ok) {
-              const data = await res.json();
-              throw new Error(data.error || 'Order failed');
-            }
-          }
-
-          clearCart();
-          toast.success('Payment successful!');
-          setSuccessSubtitle('Your payment has been received and your order is on the way.');
-          setSuccessOpen(true);
-        } catch (error: any) {
-          toast.error(error.message);
-        } finally {
-          setProcessing(false);
-        }
-      },
-      prefill: {
-        name: profile?.name,
-        email: user?.email,
-        contact: phone,
-      },
-      theme: {
-        color: '#16a34a',
-      },
-    };
-
-    const rzp = new window.Razorpay(options);
-    rzp.open();
-  };
 
   if (authLoading || cart.length === 0) {
     return (
@@ -351,18 +289,6 @@ export default function CheckoutPage() {
                       >
                         {processing ? 'Processing...' : 'Place Order'}
                       </Button>
-
-                      {/* {typeof window !== 'undefined' && window.Razorpay && (
-                        <Button
-                          className="w-full"
-                          size="lg"
-                          variant="outline"
-                          onClick={initRazorpayPayment}
-                          disabled={processing || !address || !phone}
-                        >
-                          Pay with Razorpay
-                        </Button>
-                      )} */}
 
                       <p className="text-xs text-center text-muted-foreground">
                         Your payment information is secure

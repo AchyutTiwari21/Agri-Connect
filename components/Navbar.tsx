@@ -14,19 +14,28 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function Navbar() {
   const { user, profile, signOut } = useAuth();
   const { cartCount } = useCart();
-  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync searchQuery state with URL parameter
+  useEffect(() => {
+    const urlSearch = searchParams.get('search') || '';
+    setSearchQuery(urlSearch);
+  }, [searchParams]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/?search=${encodeURIComponent(searchQuery)}`);
+    } else {
+      router.push('/');
     }
   };
 
