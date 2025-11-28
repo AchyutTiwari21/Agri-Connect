@@ -15,7 +15,15 @@ export async function GET(req: NextRequest) {
 
     // Align shape with existing UI expecting `products` key
     const mapped = orders.map((o) => ({
-      ...o,
+      id: o.id,
+      product_id: o.productId,
+      buyer_id: o.buyerId,
+      quantity: o.quantity,
+      total_amount: o.totalAmount,
+      payment_status: o.paymentStatus,
+      razorpay_order_id: o.razorpayOrderId,
+      razorpay_payment_id: o.razorpayPaymentId,
+      created_at: o.createdAt,
       products: o.product,
     }));
 
