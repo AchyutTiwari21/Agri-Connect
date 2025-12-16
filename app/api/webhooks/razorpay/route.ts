@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Server config error" }, { status: 500 });
     }
 
-    // ⭐ 1. Read RAW BODY (required for Razorpay signature)
+    // 1. Read RAW BODY (required for Razorpay signature)
     const rawBody = await req.text();
     const signature = req.headers.get("x-razorpay-signature") || "";
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       .update(rawBody)
       .digest("hex");
 
-    // ⭐ 2. Validate signature
+    // 2. Validate signature
     if (expectedSignature !== signature) {
       console.warn("Signature mismatch");
       return NextResponse.json(
@@ -59,12 +59,12 @@ export async function POST(req: NextRequest) {
 
           const cartData = JSON.parse(cartDataStr);
 
-          // ⭐ Convert total_amount → integer (avoid float crash)
+          // Convert total_amount → integer (avoid float crash)
           for (const item of cartData) {
             item.total_amount = parseInt(item.total_amount, 10) || 0;
           }
 
-          // ⭐ Prisma transaction
+          // Prisma transaction
           await prisma.$transaction(async (tx) => {
             for (const item of cartData) {
               await tx.order.create({
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // ⭐ 6. Return response instantly
+    // 5. Return response instantly
     return ack;
   } catch (err: any) {
     console.error("MAIN WEBHOOK ERROR:", err);
