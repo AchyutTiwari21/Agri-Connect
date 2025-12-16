@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 
-export const config = {
-  api: {
-    bodyParser: false, // important for raw body
-  },
-};
-
 export async function POST(req: NextRequest) {
   try {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
