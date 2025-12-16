@@ -58,27 +58,26 @@ export async function POST(req: NextRequest) {
             item.total_amount = parseInt(item.total_amount, 10) || 0;
           }
 
-          // Prisma transaction
-          await prisma.$transaction(async (tx) => {
-            for (const item of cartData) {
-              await tx.order.create({
-                data: {
-                  productId: item.product_id,
-                  buyerId,
-                  quantity: item.quantity,
-                  totalAmount: item.total_amount,
-                  paymentStatus: "completed",
-                  razorpayOrderId: orderId,
-                  razorpayPaymentId: paymentId,
-                },
-              });
+          // Prisma transaction (batched queries instead of long interactive transaction)
+          const operations = cartData.flatMap((item: any) => [
+            prisma.order.create({
+              data: {
+                productId: item.product_id,
+                buyerId,
+                quantity: item.quantity,
+                totalAmount: item.total_amount,
+                paymentStatus: "completed",
+                razorpayOrderId: orderId,
+                razorpayPaymentId: paymentId,
+              },
+            }),
+            prisma.product.update({
+              where: { id: item.product_id },
+              data: { quantity: { decrement: item.quantity } },
+            }),
+          ]);
 
-              await tx.product.update({
-                where: { id: item.product_id },
-                data: { quantity: { decrement: item.quantity } },
-              });
-            }
-          });
+          await prisma.$transaction(operations);
 
           console.log("✅ Orders created for payment:", paymentId);
         }
