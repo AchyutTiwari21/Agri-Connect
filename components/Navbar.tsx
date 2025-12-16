@@ -45,7 +45,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-green-700">
             <Sprout className="h-8 w-8" />
-            <span>AgriConnect</span>
+            <span className='hidden md:block'>AgriConnect</span>
           </Link>
 
           <form onSubmit={handleSearch} className="flex-1 max-w-xl">

@@ -3,7 +3,7 @@
 import { Product } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Star, User } from 'lucide-react';
+import { Star, User, ShoppingCart } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -20,6 +20,22 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart } = useCart();
   const { user, profile } = useAuth();
   const router = useRouter();
+
+  const handleAddToCart = () => {
+    if (!user) {
+      toast.error('Please login to continue');
+      router.push('/auth/login');
+      return;
+    }
+
+    if (profile?.role !== 'consumer') {
+      toast.error('Only consumers can purchase products');
+      return;
+    }
+
+    addToCart(product, 1);
+    toast.success('Added to cart!');
+  };
 
   const handleBuyNow = () => {
     if (!user) {
@@ -83,8 +99,8 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         </CardContent>
 
-        <CardFooter className="flex items-center justify-between pt-3 border-t">
-          <div>
+        <CardFooter className="flex flex-col gap-3 pt-3 border-t">
+          <div className="w-full">
             <p className="text-2xl font-bold text-green-700">
               ₹{product.price} / {product.category === 'Dairy' ? 'ltr' : 'kg'}
             </p>
@@ -92,13 +108,24 @@ export default function ProductCard({ product }: ProductCardProps) {
               {product.quantity > 0 ? `${product.quantity} ${product.category === 'Dairy' ? 'ltr' : 'kg'} in stock` : 'Out of stock'}
             </p>
           </div>
-          <Button
-            onClick={handleBuyNow}
-            disabled={product.quantity === 0}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            Buy Now
-          </Button>
+          <div className="flex items-center gap-2 w-full">
+            <Button
+              onClick={handleAddToCart}
+              disabled={product.quantity === 0}
+              variant="outline"
+              className="flex-1"
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Add to Cart
+            </Button>
+            <Button
+              onClick={handleBuyNow}
+              disabled={product.quantity === 0}
+              className="bg-green-600 hover:bg-green-700 flex-1"
+            >
+              Buy Now
+            </Button>
+          </div>
         </CardFooter>
       </Card>
     </motion.div>

@@ -81,6 +81,24 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleBuyNow = () => {
+    if (!user) {
+      toast.error('Please login to continue');
+      router.push('/auth/login');
+      return;
+    }
+
+    if (profile?.role !== 'consumer') {
+      toast.error('Only consumers can purchase products');
+      return;
+    }
+
+    if (product) {
+      addToCart(product, quantity);
+      router.push('/cart');
+    }
+  };
+
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -231,6 +249,15 @@ export default function ProductDetailPage() {
 
                 <Button
                   className="w-full bg-green-600 hover:bg-green-700"
+                  size="lg"
+                  onClick={handleBuyNow}
+                  disabled={product.quantity === 0}
+                >
+                  Buy Now
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
                   size="lg"
                   onClick={handleAddToCart}
                   disabled={product.quantity === 0}

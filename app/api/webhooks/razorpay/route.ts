@@ -1,88 +1,109 @@
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import { prisma } from "@/lib/prisma";
+
+export const config = {
+  api: {
+    bodyParser: false, // important for raw body
+  },
+};
 
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
-      return NextResponse.json({ error: 'Webhook secret not set' }, { status: 500 });
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error("Webhook secret missing");
+      return NextResponse.json({ error: "Server config error" }, { status: 500 });
     }
 
-    const signature = req.headers.get('x-razorpay-signature') || '';
-    const body = await req.json();
+    // ⭐ 1. Read RAW BODY (required for Razorpay signature)
+    const rawBody = await req.text();
+    const signature = req.headers.get("x-razorpay-signature") || "";
 
-    const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET);
-    shasum.update(JSON.stringify(body));
-    const digest = shasum.digest('hex');
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(rawBody)
+      .digest("hex");
 
-    if (digest !== signature) {
-      return NextResponse.json({ status: 'failure', message: 'Invalid signature' }, { status: 400 });
+    // ⭐ 2. Validate signature
+    if (expectedSignature !== signature) {
+      console.warn("Signature mismatch");
+      return NextResponse.json(
+        { status: "failure", message: "Invalid signature" },
+        { status: 400 }
+      );
     }
 
-    // ✅ Immediately acknowledge webhook
-    const response = NextResponse.json({ status: 'ok' }, { status: 200 });
+    // 3. Parse JSON only after verification
+    const body = JSON.parse(rawBody);
 
-    // Continue processing in background (don't block response)
-    const event = body.event;
+    const ack = NextResponse.json({ status: "ok" }, { status: 200 });
 
-    // Process payment events asynchronously without blocking response
-    (async () => {
-      if (event === 'payment.captured') {
-        const payment = body.payload.payment.entity;
-        const orderId = payment.order_id;
-        const paymentId = payment.id;
+    // 4. Background processing — fully detached
+    queueMicrotask(async () => {
+      try {
+        const event = body.event;
 
-        // Extract cart data from payment notes
-        if (payment.notes && payment.notes.cartData && payment.notes.buyerId) {
-          try {
-            const cartData = JSON.parse(payment.notes.cartData);
-            const buyerId = payment.notes.buyerId;
+        if (event === "payment.authorized") {
+          const payment = body.payload.payment.entity;
 
-            // Create orders for each cart item
-            await prisma.$transaction(async (tx) => {
-              for (const item of cartData) {
-                // Create order
-                await tx.order.create({
-                  data: {
-                    productId: item.product_id,
-                    buyerId: buyerId,
-                    quantity: item.quantity,
-                    totalAmount: item.total_amount,
-                    paymentStatus: 'completed',
-                    razorpayOrderId: orderId,
-                    razorpayPaymentId: paymentId,
-                  },
-                });
+          const buyerId = payment.notes?.buyerId;
+          const cartDataStr = payment.notes?.cartData;
+          const orderId = payment.order_id;
+          const paymentId = payment.id;
 
-                // Update product quantity
-                await tx.product.update({
-                  where: { id: item.product_id },
-                  data: { quantity: { decrement: item.quantity } },
-                });
-              }
-            });
-
-            console.log('✅ Payment successful and orders created:', paymentId);
-          } catch (err: any) {
-            console.error('⚠️ Error processing payment.captured:', err.message);
+          if (!buyerId || !cartDataStr) {
+            console.error("Missing buyerId or cartData in notes");
+            return;
           }
-        } else {
-          console.error('⚠️ Missing cart data or buyerId in payment notes for order:', orderId);
+
+          const cartData = JSON.parse(cartDataStr);
+
+          // ⭐ Convert total_amount → integer (avoid float crash)
+          for (const item of cartData) {
+            item.total_amount = parseInt(item.total_amount, 10) || 0;
+          }
+
+          // ⭐ Prisma transaction
+          await prisma.$transaction(async (tx) => {
+            for (const item of cartData) {
+              await tx.order.create({
+                data: {
+                  productId: item.product_id,
+                  buyerId,
+                  quantity: item.quantity,
+                  totalAmount: item.total_amount,
+                  paymentStatus: "completed",
+                  razorpayOrderId: orderId,
+                  razorpayPaymentId: paymentId,
+                },
+              });
+
+              await tx.product.update({
+                where: { id: item.product_id },
+                data: { quantity: { decrement: item.quantity } },
+              });
+            }
+          });
+
+          console.log("✅ Orders created for payment:", paymentId);
         }
-      } else if (event === 'payment.failed') {
-        const payment = body.payload.payment.entity;
-        console.log('❌ Payment failed:', payment.id);
-        // Do not create orders for failed payments
+
+        if (event === "payment.failed") {
+          console.log("❌ Payment failed");
+        }
+      } catch (err) {
+        console.error("BACKGROUND ERROR:", err);
       }
-    })().catch((err) => {
-      console.error('Webhook background processing error:', err.message);
     });
 
-    return response;
+    // ⭐ 6. Return response instantly
+    return ack;
   } catch (err: any) {
-    console.error('Webhook Error:', err.message);
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });
+    console.error("MAIN WEBHOOK ERROR:", err);
+    return NextResponse.json(
+      { error: err?.message || "Webhook processing error" },
+      { status: 500 }
+    );
   }
 }
-
-
