@@ -7,6 +7,7 @@ import ProductCard from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -125,14 +126,52 @@ export default function Home() {
                   <Label className="text-base font-medium mb-3 block">
                     Price Range: ₹{priceRange[0]} - ₹{priceRange[1]}
                   </Label>
-                  <Slider
-                    min={0}
-                    max={maxPrice}
-                    step={100}
-                    value={priceRange}
-                    onValueChange={setPriceRange}
-                    className="mt-2"
-                  />
+                  <div className="space-y-3">
+                    <Slider
+                      min={0}
+                      max={maxPrice}
+                      step={100}
+                      value={priceRange}
+                      onValueChange={setPriceRange}
+                      className="mt-2"
+                    />
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground mb-1 block">
+                          Min price
+                        </Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={priceRange[1]}
+                          value={priceRange[0]}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value);
+                            const safe = Number.isNaN(raw) ? 0 : raw;
+                            const clamped = Math.max(0, Math.min(safe, priceRange[1]));
+                            setPriceRange([clamped, priceRange[1]]);
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground mb-1 block">
+                          Max price
+                        </Label>
+                        <Input
+                          type="number"
+                          min={priceRange[0]}
+                          max={maxPrice}
+                          value={priceRange[1]}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value);
+                            const safe = Number.isNaN(raw) ? priceRange[0] : raw;
+                            const clamped = Math.max(priceRange[0], Math.min(safe, maxPrice));
+                            setPriceRange([priceRange[0], clamped]);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <Button
