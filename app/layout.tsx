@@ -10,6 +10,9 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'AgriConnect - Farm to Table Direct',
   description: 'Connect with local farmers and buy fresh agricultural products directly',
+  icons: {
+    icon: '/sprout-favicon.svg',
+  },
 };
 
 export default function RootLayout({
