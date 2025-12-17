@@ -21,6 +21,28 @@ export default function LoginPage() {
   const { signIn } = useAuth();
   const router = useRouter();
 
+  const handleGuestLogin = async () => {
+    try {
+      setLoading(true);
+      const guestEmail = 'demouser@gmail.com';
+      const guestPassword = 'DemoUser@12345';
+
+      const { error } = await signIn(guestEmail, guestPassword);
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Logged in as guest user!');
+        router.push('/');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to login as guest user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -135,6 +157,15 @@ export default function LoginPage() {
                       </svg>
                     </span>
                     <span>{oauthLoading === 'google' ? 'Continuing with Google...' : 'Continue with Google'}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-center"
+                    disabled={loading || !!oauthLoading}
+                    onClick={handleGuestLogin}
+                  >
+                    {loading ? 'Logging in as Guest...' : 'Login as Guest User'}
                   </Button>
                   {/* <Button
                     type="button"
