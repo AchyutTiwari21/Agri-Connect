@@ -79,8 +79,8 @@ export default function Navbar() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <User className="h-5 w-5" />
+                    <Button variant={profile?.image ? 'ghost' : 'outline'} size="icon">
+                      {profile?.image ? <img src={profile?.image} alt={profile?.name} width={40} height={40} className="rounded-full" /> : <User className="h-5 w-5" />}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">

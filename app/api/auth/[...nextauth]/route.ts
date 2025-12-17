@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
         const user = await prisma.user.findUnique({ where: { email: credentials.email } });
         if (!user) return null;
-        const valid = await bcrypt.compare(credentials.password, user.password);
+        const valid = await bcrypt.compare(credentials.password, user?.password ?? '');
         if (!valid) return null;
         return { id: user.id, email: user.email, name: user.name } as any;
       },
@@ -64,6 +64,7 @@ export const authOptions: NextAuthOptions = {
               name: user.name ?? (user.email ? user.email.split('@')[0] : 'User'),
               // Default role; can be adjusted later via UI (consumer vs farmer)
               role: 'consumer',
+              image: user.image ?? undefined
             },
           });
         }

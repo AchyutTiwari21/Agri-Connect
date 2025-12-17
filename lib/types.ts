@@ -6,6 +6,7 @@ export type Profile = {
   role: 'consumer' | 'farmer';
   phone?: string;
   address?: string;
+  image?: string;
   created_at: string;
   updated_at: string;
 };

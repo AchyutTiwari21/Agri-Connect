@@ -63,6 +63,7 @@ model Profile {
   role      Role
   phone     String?  @db.VarChar(30)
   address   String?  @db.Text
+  image     String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

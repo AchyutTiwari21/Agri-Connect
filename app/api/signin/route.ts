@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await bcrypt.compare(password, user?.password ?? '');
     if (!valid) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 
     // This endpoint validates credentials only. For session, use NextAuth signIn.
